@@ -7,6 +7,7 @@ import sys
 import threading
 from pathlib import Path
 
+from mcpflight.framing import FramedReader, write_message
 from mcpflight.store import TraceStore
 
 
@@ -23,9 +24,7 @@ def run_proxy(
         command,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
-        stderr=sys.stderr,
-        text=True,
-        bufsize=1,
+        stderr=sys.stderr.buffer,
     )
 
     assert proc.stdin is not None
@@ -34,11 +33,16 @@ def run_proxy(
     stop = threading.Event()
 
     def client_to_server() -> None:
+        reader = FramedReader(sys.stdin.buffer)
         try:
-            for line in sys.stdin:
-                store.append(direction="client_to_server", raw=line)
-                proc.stdin.write(line)
-                proc.stdin.flush()
+            while True:
+                body = reader.read()
+                if body is None:
+                    break
+                mode = reader.mode
+                assert mode is not None
+                store.append(direction="client_to_server", raw=body.decode("utf-8"))
+                write_message(proc.stdin, body, mode)
         except (BrokenPipeError, OSError):
             pass
         finally:
@@ -49,11 +53,16 @@ def run_proxy(
             stop.set()
 
     def server_to_client() -> None:
+        reader = FramedReader(proc.stdout)
         try:
-            for line in proc.stdout:
-                store.append(direction="server_to_client", raw=line)
-                sys.stdout.write(line)
-                sys.stdout.flush()
+            while True:
+                body = reader.read()
+                if body is None:
+                    break
+                mode = reader.mode
+                assert mode is not None
+                store.append(direction="server_to_client", raw=body.decode("utf-8"))
+                write_message(sys.stdout.buffer, body, mode)
         except (BrokenPipeError, OSError):
             pass
         finally:

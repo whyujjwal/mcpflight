@@ -26,8 +26,11 @@ python3 -m pip install -e '.[dev]'
 # Record a session against the bundled example server
 mcpflight record --trace traces/session.jsonl -- python examples/echo_mcp_server.py
 
-# In another terminal, send JSON-RPC lines to the recorder's stdin:
+# In another terminal, send JSON-RPC lines to the recorder's stdin (newline-delimited):
 echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}' | mcpflight record --trace traces/session.jsonl -- python examples/echo_mcp_server.py
+
+# Real MCP clients use Content-Length framing; MCPFlight auto-detects per stream
+# and preserves the peer's framing when proxying.
 
 # Summarize a trace
 mcpflight summarize traces/session.jsonl
