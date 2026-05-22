@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mcpflight"
+version = "0.1.0"
+description = "A transparent flight recorder for MCP stdio sessions"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "MCPFlight Contributors" }]
+keywords = ["mcp", "model-context-protocol", "debugging", "tracing", "json-rpc"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Debuggers",
+]
+dependencies = [
+    "pydantic>=2.0",
+    "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+mcpflight = "mcpflight.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mcpflight*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
