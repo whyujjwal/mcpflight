@@ -75,6 +75,17 @@ def summarize(
 def tail(
     trace: Path = typer.Argument(..., help="JSONL trace file to inspect."),
     last: int = typer.Option(10, "--last", "-n", help="Number of recent events to show."),
+    method: Optional[str] = typer.Option(
+        None,
+        "--method",
+        "-m",
+        help="Only show events for this JSON-RPC method.",
+    ),
+    errors_only: bool = typer.Option(
+        False,
+        "--errors-only",
+        help="Only show events with JSON-RPC errors.",
+    ),
 ) -> None:
     """Pretty-print the last N events from a trace."""
     if not trace.exists():
@@ -82,7 +93,7 @@ def tail(
         raise typer.Exit(1)
 
     events = load_events(trace)
-    typer.echo(format_tail(events, last=last))
+    typer.echo(format_tail(events, last=last, method=method, errors_only=errors_only))
 
 
 if __name__ == "__main__":

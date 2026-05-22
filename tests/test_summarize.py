@@ -5,7 +5,7 @@ from pathlib import Path
 
 from mcpflight.models import TraceEvent
 from mcpflight.store import write_events
-from mcpflight.summarize import format_event, format_tail, summarize_events, summarize_trace
+from mcpflight.summarize import filter_events, format_event, format_tail, summarize_events, summarize_trace
 
 
 def _event(direction: str, payload: dict, **extra) -> TraceEvent:
@@ -67,3 +67,41 @@ def test_format_event_and_tail():
     assert "tools/list" in line
     tail = format_tail(events, last=1)
     assert "result" in tail
+
+
+def test_filter_events_by_method():
+    events = [
+        _event("client_to_server", {"jsonrpc": "2.0", "id": 1, "method": "initialize"}),
+        _event("server_to_client", {"jsonrpc": "2.0", "id": 1, "result": {}}),
+        _event("client_to_server", {"jsonrpc": "2.0", "id": 2, "method": "tools/list"}),
+    ]
+    filtered = filter_events(events, method="tools/list")
+    assert len(filtered) == 1
+    assert filtered[0].method == "tools/list"
+
+
+def test_filter_events_errors_only():
+    events = [
+        _event("server_to_client", {"jsonrpc": "2.0", "id": 1, "result": {}}),
+        _event(
+            "server_to_client",
+            {"jsonrpc": "2.0", "id": 2, "error": {"code": -32601, "message": "nope"}},
+        ),
+    ]
+    filtered = filter_events(events, errors_only=True)
+    assert len(filtered) == 1
+    assert filtered[0].has_error is True
+
+
+def test_format_tail_with_filters():
+    events = [
+        _event("client_to_server", {"jsonrpc": "2.0", "id": 1, "method": "initialize"}),
+        _event("client_to_server", {"jsonrpc": "2.0", "id": 2, "method": "tools/list"}),
+        _event(
+            "server_to_client",
+            {"jsonrpc": "2.0", "id": 3, "error": {"code": -32601, "message": "nope"}},
+        ),
+    ]
+    assert "tools/list" in format_tail(events, method="tools/list")
+    assert "ERROR" in format_tail(events, errors_only=True)
+    assert format_tail(events, method="missing") == "(no matching events)"

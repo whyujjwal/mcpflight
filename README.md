@@ -37,6 +37,10 @@ mcpflight summarize traces/session.jsonl
 
 # Pretty-print the last 10 events
 mcpflight tail traces/session.jsonl --last 10
+
+# Filter by JSON-RPC method or errors only
+mcpflight tail traces/session.jsonl --method tools/call
+mcpflight tail traces/session.jsonl --errors-only
 ```
 
 ## CLI
@@ -45,7 +49,7 @@ mcpflight tail traces/session.jsonl --last 10
 |---------|-------------|
 | `mcpflight record --trace PATH -- COMMAND...` | Launch a child server, proxy stdio, record events |
 | `mcpflight summarize TRACE` | Print session statistics |
-| `mcpflight tail TRACE [--last N]` | Human-readable view of recent events |
+| `mcpflight tail TRACE [--last N] [--method M] [--errors-only]` | Human-readable view of recent events |
 
 ## Trace format
 

@@ -49,6 +49,42 @@ def test_cli_tail(tmp_path: Path):
     assert "result" in result.output
 
 
+def test_cli_tail_method_filter(tmp_path: Path):
+    trace = tmp_path / "session.jsonl"
+    _make_trace(trace)
+    result = runner.invoke(app, ["tail", str(trace), "--method", "initialize"])
+    assert result.exit_code == 0
+    assert "initialize" in result.output
+    assert "result" not in result.output
+
+
+def test_cli_tail_errors_only(tmp_path: Path):
+    trace = tmp_path / "session.jsonl"
+    events = [
+        build_trace_event(
+            event_id="e1",
+            session_id="s1",
+            timestamp="2026-05-22T10:00:00+00:00",
+            direction="server_to_client",
+            raw=json.dumps({"jsonrpc": "2.0", "id": 1, "result": {}}),
+        ),
+        build_trace_event(
+            event_id="e2",
+            session_id="s1",
+            timestamp="2026-05-22T10:00:01+00:00",
+            direction="server_to_client",
+            raw=json.dumps(
+                {"jsonrpc": "2.0", "id": 2, "error": {"code": -32601, "message": "nope"}}
+            ),
+        ),
+    ]
+    write_events(trace, events)
+    result = runner.invoke(app, ["tail", str(trace), "--errors-only"])
+    assert result.exit_code == 0
+    assert "ERROR" in result.output
+    assert "result" not in result.output
+
+
 def test_cli_summarize_missing_file(tmp_path: Path):
     result = runner.invoke(app, ["summarize", str(tmp_path / "nope.jsonl")])
     assert result.exit_code == 1

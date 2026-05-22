@@ -73,10 +73,32 @@ def format_event(event: TraceEvent) -> str:
     return "  ".join(parts)
 
 
-def format_tail(events: list[TraceEvent], last: int = 10) -> str:
+def filter_events(
+    events: list[TraceEvent],
+    *,
+    method: str | None = None,
+    errors_only: bool = False,
+) -> list[TraceEvent]:
+    """Return events matching optional inspection filters."""
+    filtered = events
+    if method is not None:
+        filtered = [event for event in filtered if event.method == method]
+    if errors_only:
+        filtered = [event for event in filtered if event.has_error]
+    return filtered
+
+
+def format_tail(
+    events: list[TraceEvent],
+    last: int = 10,
+    *,
+    method: str | None = None,
+    errors_only: bool = False,
+) -> str:
     """Format the last N events for display."""
-    if not events:
-        return "(no events)"
-    tail = events[-last:]
+    filtered = filter_events(events, method=method, errors_only=errors_only)
+    if not filtered:
+        return "(no matching events)" if (method is not None or errors_only) else "(no events)"
+    tail = filtered[-last:]
     lines = [format_event(event) for event in tail]
     return "\n".join(lines)
