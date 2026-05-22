@@ -239,3 +239,55 @@ def test_record_full_mcp_session_content_length(tmp_path: Path):
 
     assert b"Content-Length:" in result.stdout
     assert b"hello" in result.stdout
+
+
+def test_record_full_session_content_length_cli_inspection_pipeline(tmp_path: Path):
+    """End-to-end: Content-Length session record, then summarize and filter via CLI."""
+    trace = tmp_path / "session.jsonl"
+    client_input = [format_content_length(json.dumps(m).encode()) for m in _FULL_SESSION_MESSAGES]
+    record = _run_record(trace, [sys.executable, str(CL_SERVER)], client_input)
+    assert record.returncode == 0
+
+    summarize = _run_cli(["summarize", str(trace)])
+    assert summarize.returncode == 0
+    assert "Total events:      7" in summarize.stdout
+    assert "Errors:            0" in summarize.stdout
+    assert "tools/call: 1" in summarize.stdout
+
+    tail_method = _run_cli(["tail", str(trace), "--method", "tools/call"])
+    assert tail_method.returncode == 0
+    assert "tools/call" in tail_method.stdout
+    assert "result" not in tail_method.stdout
+
+    tail_errors = _run_cli(["tail", str(trace), "--errors-only"])
+    assert tail_errors.returncode == 0
+    assert "(no matching events)" in tail_errors.stdout
+
+
+def test_record_unknown_method_content_length_errors_only_tail(tmp_path: Path):
+    """End-to-end: JSON-RPC errors over Content-Length framing surface via --errors-only."""
+    trace = tmp_path / "session.jsonl"
+    messages = [
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {"protocolVersion": "2024-11-05"},
+        },
+        {"jsonrpc": "2.0", "id": 99, "method": "unknown/method"},
+    ]
+    client_input = [format_content_length(json.dumps(m).encode()) for m in messages]
+    record = _run_record(trace, [sys.executable, str(CL_SERVER)], client_input)
+    assert record.returncode == 0
+
+    events = load_events(trace)
+    assert any(event.has_error for event in events)
+
+    summarize = _run_cli(["summarize", str(trace)])
+    assert summarize.returncode == 0
+    assert "Errors:            1" in summarize.stdout
+
+    tail_errors = _run_cli(["tail", str(trace), "--errors-only"])
+    assert tail_errors.returncode == 0
+    assert "ERROR" in tail_errors.stdout
+    assert "unknown/method" not in tail_errors.stdout
