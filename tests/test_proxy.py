@@ -196,3 +196,46 @@ def test_record_content_length_session(tmp_path: Path):
     assert events[0].method == "initialize"
     assert events[1].has_result is True
     assert events[0].raw.startswith("{")
+
+
+def test_record_full_mcp_session_content_length(tmp_path: Path):
+    """End-to-end: full MCP session over Content-Length framing with trace inspection."""
+    trace = tmp_path / "session.jsonl"
+    client_input = [format_content_length(json.dumps(m).encode()) for m in _FULL_SESSION_MESSAGES]
+    result = _run_record(
+        trace,
+        [sys.executable, str(CL_SERVER)],
+        client_input,
+    )
+
+    assert result.returncode == 0
+    events = load_events(trace)
+    assert len(events) == 7
+
+    client_methods = [e.method for e in events if e.direction == "client_to_server"]
+    assert client_methods == [
+        "initialize",
+        "notifications/initialized",
+        "tools/list",
+        "tools/call",
+    ]
+
+    call_request = next(e for e in events if e.method == "tools/call")
+    call_response = next(
+        e for e in events if e.direction == "server_to_client" and e.rpc_id == call_request.rpc_id
+    )
+    assert call_response.has_result is True
+    assert "hello" in call_response.raw
+
+    from mcpflight.summarize import summarize_trace
+
+    summary = summarize_trace(trace)
+    assert summary.total_events == 7
+    assert summary.request_count == 3
+    assert summary.response_count == 3
+    assert summary.notification_count == 1
+    assert summary.error_count == 0
+    assert summary.method_counts["tools/call"] == 1
+
+    assert b"Content-Length:" in result.stdout
+    assert b"hello" in result.stdout
